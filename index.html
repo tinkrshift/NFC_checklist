@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tinkr NFC Checklist</title>
+  <link rel="stylesheet" href="js/style.css">
+  <style>
+    h1 { margin-top: 0.5em; }
+    .zone-block {
+      padding: 1em;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin: 1em 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tinkr NFC Routine System</h1>
+  <p>This is your personal NFC-triggered checklist system. Tap an NFC tag to jump to a zone, or click below to test manually.</p>
+
+  <div class="zone-block">
+    <h3>🛁 Bathroom</h3>
+    <a href="bathroom/index.html">Open Bathroom Zone</a><br>
+    <code id="link-bathroom">https://tinkrshift.github.io/nfc-checklist/bathroom/</code>
+    <button onclick="copy('link-bathroom')">📋 Copy</button>
+  </div>
+
+  <div class="zone-block">
+    <h3>🍽️ Kitchen</h3>
+    <a href="kitchen/index.html">Open Kitchen Zone</a><br>
+    <code id="link-kitchen">https://tinkrshift.github.io/nfc-checklist/kitchen/</code>
+    <button onclick="copy('link-kitchen')">📋 Copy</button>
+  </div>
+
+  <div class="zone-block">
+    <h3>🏋️ Gym</h3>
+    <a href="gym/index.html">Open Gym Zone</a><br>
+    <code id="link-gym">https://tinkrshift.github.io/nfc-checklist/gym/</code>
+    <button onclick="copy('link-gym')">📋 Copy</button>
+  </div>
+
+  <div class="zone-block">
+    <h3>➕ Add More Zones (coming soon)</h3>
+    <p>You'll be able to create custom zones from here in a future update.</p>
+  </div>
+
+  <script>
+    function copy(id) {
+      const text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text);
+    }
+  </script>
+</body>
+</html>

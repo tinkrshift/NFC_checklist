@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Checklist</title>
+  <script src="../js/engine.js" defer></script>
+  <script src="../js/gui.js" defer></script>
+  <link rel="stylesheet" href="../js/style.css">
+</head>
+<body>
+  <h2 id="checklistTitle">Your Checklist</h2>
+  <div id="checklistContainer"></div>
+  <button onclick="toggleEdit()">⚙️ Edit Checklist</button>
+  <div id="editorSection" style="display:none;">
+    <h3>Edit Tasks</h3>
+    <div id="editor"></div>
+    <button onclick="saveChecklist()">💾 Save</button>
+  </div>
+  <footer>
+    <p>🔗 NFC Link to This Routine:<br>
+    <code id="nfcLink"></code> <button onclick="copyLink()">📋 Copy</button></p>
+  </footer>
+</body>
+</html>

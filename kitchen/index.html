@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Routine Zone Redirect</title>
+  <script>
+    const rules = JSON.parse(localStorage.getItem("zone:kitchen:rules") || "[]");
+    const now = new Date();
+    const hour = now.getHours();
+    const day = now.getDay();
+
+    const match = rules.find(r => {
+      return r.timeRange[0] <= hour && hour <= r.timeRange[1] && r.days.includes(day);
+    });
+
+    if (match) {
+      window.location.href = `checklist.html?listKey=${match.listKey}`;
+    } else {
+      document.body.innerHTML = '<h3>No matching routine found right now.</h3>';
+    }
+  </script>
+</head>
+<body>
+  <p>Checking your routine...</p>
+</body>
+</html>
