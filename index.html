@@ -16,6 +16,11 @@
   <p id="completion-rate"></p>
 
   <div id="edit-section" style="display:none;">
+    <label>Edit List:</label>
+    <select id="edit-period" onchange="setEditPeriod(this.value)">
+      <option value="AM">AM</option>
+      <option value="PM">PM</option>
+    </select>
     <input type="text" id="new-task" placeholder="New task...">
     <button onclick="addTask()">Add Task</button>
     <ul id="edit-list"></ul>

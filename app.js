@@ -1,10 +1,20 @@
-const STORAGE_KEY = 'nfc_task_data_v2';
+const STORAGE_KEY = 'nfc_task_data_v4';
 const MAX_DAYS = 30;
+let currentEditPeriod = getTimePeriod();
+
+function getTimePeriod() {
+  const hour = new Date().getHours();
+  return hour < 12 ? "AM" : "PM";
+}
 
 function loadData() {
+  const defaultTasks = {
+    AM: ["Brush Teeth", "Take Meds", "Shave"],
+    PM: ["Brush Teeth", "Apply Lotion", "Floss"]
+  };
   const data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-    tasks: ["Brush Teeth", "Stretch", "Journal"],
-    history: {}  // format: { "Task Name": ["2025-06-30", "2025-06-28"] }
+    tasks: defaultTasks,
+    history: { AM: {}, PM: {} }
   };
   return data;
 }
@@ -18,31 +28,31 @@ function getTodayKey() {
 }
 
 function renderTasks() {
+  const timePeriod = getTimePeriod();
   const data = loadData();
   const today = getTodayKey();
+  const list = data.tasks[timePeriod] || [];
+
+  if (!data.history[timePeriod][today]) {
+    data.history[timePeriod][today] = {};
+    list.forEach(t => data.history[timePeriod][today][t] = false);
+    trimHistory(data.history[timePeriod]);
+    saveData(data);
+  }
+
   const ul = document.getElementById("task-list");
   ul.innerHTML = "";
-
-  data.tasks.forEach(task => {
+  list.forEach(task => {
     const li = document.createElement("li");
     const checkbox = document.createElement("input");
-    const last30 = getLast30Days();
-    const completedDates = (data.history[task] || []).filter(date => last30.includes(date));
-    const isChecked = completedDates.includes(today);
     checkbox.type = "checkbox";
-    checkbox.checked = isChecked;
-
+    checkbox.checked = data.history[timePeriod][today][task];
     checkbox.onchange = () => {
-      const taskDates = new Set(data.history[task] || []);
-      if (checkbox.checked) taskDates.add(today);
-      else taskDates.delete(today);
-      data.history[task] = Array.from(taskDates);
-      trimHistory(data.history);
+      data.history[timePeriod][today][task] = checkbox.checked;
       saveData(data);
       renderCompletion();
-      if (data.tasks.every(t => (data.history[t] || []).includes(today))) window.close();
+      if (Object.values(data.history[timePeriod][today]).every(v => v)) window.close();
     };
-
     li.appendChild(checkbox);
     li.appendChild(document.createTextNode(" " + task));
     ul.appendChild(li);
@@ -51,52 +61,52 @@ function renderTasks() {
   renderCompletion();
 }
 
-function getLast30Days() {
-  const days = [];
-  for (let i = 0; i < MAX_DAYS; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    days.push(date.toISOString().split('T')[0]);
-  }
-  return days;
-}
-
 function renderCompletion() {
   const data = loadData();
-  const recentDays = getLast30Days();
-  const taskStats = data.tasks.map(task => {
-    const completedDates = (data.history[task] || []).filter(date => recentDays.includes(date));
-    return {
-      task,
-      percent: Math.round((completedDates.length / MAX_DAYS) * 100)
-    };
+  const timePeriod = getTimePeriod();
+  const keys = Object.keys(data.history[timePeriod]).slice(-MAX_DAYS);
+  const list = data.tasks[timePeriod];
+  let total = 0, done = 0;
+
+  keys.forEach(day => {
+    const daily = data.history[timePeriod][day];
+    for (let task of list) {
+      total++;
+      if (daily?.[task]) done++;
+    }
   });
 
-  const summary = taskStats.map(stat => `${stat.task}: ${stat.percent}%`).join('<br>');
-  document.getElementById("completion-rate").innerHTML = `Last 30 Days:<br>${summary}`;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById("completion-rate").innerText =
+    `${timePeriod} - 30-day completion: ${pct}%`;
 }
 
 function toggleEditMode() {
   const edit = document.getElementById("edit-section");
+  const select = document.getElementById("edit-period");
   const button = document.querySelector("button[onclick='toggleEditMode()']");
   const isVisible = edit.style.display !== "none";
   edit.style.display = isVisible ? "none" : "block";
   button.innerText = isVisible ? "Edit Tasks" : "Close Edit";
-  if (!isVisible) renderEditList();
+
+  if (!isVisible) {
+    select.value = currentEditPeriod = getTimePeriod();
+    renderEditList();
+  }
 }
 
 function renderEditList() {
   const data = loadData();
   const ul = document.getElementById("edit-list");
   ul.innerHTML = "";
-  data.tasks.forEach((task, i) => {
+  (data.tasks[currentEditPeriod] || []).forEach((task, i) => {
     const li = document.createElement("li");
     li.innerText = task;
     const btn = document.createElement("button");
     btn.innerText = "🗑️";
     btn.onclick = () => {
-      data.tasks.splice(i, 1);
-      delete data.history[task];
+      data.tasks[currentEditPeriod].splice(i, 1);
+      deleteFromHistory(data.history[currentEditPeriod], task);
       saveData(data);
       renderTasks();
       renderEditList();
@@ -111,9 +121,11 @@ function addTask() {
   const newTask = input.value.trim();
   if (!newTask) return;
   const data = loadData();
-  if (!data.tasks.includes(newTask)) {
-    data.tasks.push(newTask);
-    data.history[newTask] = [];
+  if (!data.tasks[currentEditPeriod].includes(newTask)) {
+    data.tasks[currentEditPeriod].push(newTask);
+    Object.keys(data.history[currentEditPeriod]).forEach(day => {
+      data.history[currentEditPeriod][day][newTask] = false;
+    });
     saveData(data);
     renderTasks();
     renderEditList();
@@ -121,15 +133,26 @@ function addTask() {
   input.value = "";
 }
 
+function setEditPeriod(value) {
+  currentEditPeriod = value;
+  renderEditList();
+}
+
 function copyLink() {
   navigator.clipboard.writeText(window.location.href);
   alert("Link copied!");
 }
 
-function trimHistory(history) {
-  const cutoff = getLast30Days();
-  for (let task in history) {
-    history[task] = history[task].filter(date => cutoff.includes(date));
+function deleteFromHistory(historySection, task) {
+  for (let day in historySection) {
+    delete historySection[day][task];
+  }
+}
+
+function trimHistory(historySection) {
+  const keys = Object.keys(historySection).sort();
+  while (keys.length > MAX_DAYS) {
+    delete historySection[keys.shift()];
   }
 }
 
