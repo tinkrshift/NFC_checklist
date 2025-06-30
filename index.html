@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Daily Task Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    button, input[type="text"] { margin: 5px; }
+  </style>
+</head>
+<body>
+  <h2>Today's Tasks</h2>
+  <ul id="task-list"></ul>
+  <button onclick="toggleEditMode()">Edit Tasks</button>
+  <button onclick="copyLink()">Copy Link</button>
+  <p id="completion-rate"></p>
+
+  <div id="edit-section" style="display:none;">
+    <input type="text" id="new-task" placeholder="New task...">
+    <button onclick="addTask()">Add Task</button>
+    <ul id="edit-list"></ul>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
