@@ -2,53 +2,106 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tinkr NFC Checklist</title>
-  <link rel="stylesheet" href="js/style.css">
+  <title>My Checklist</title>
   <style>
-    h1 { margin-top: 0.5em; }
-    .zone-block {
-      padding: 1em;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      margin: 1em 0;
-    }
+    body { font-family: sans-serif; padding: 1em; max-width: 600px; margin: auto; }
+    input[type="checkbox"] { margin-right: 0.5em; }
+    footer { margin-top: 2em; font-size: 0.85em; color: gray; }
+    code { background: #f3f3f3; padding: 0.2em 0.4em; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <h1>Tinkr NFC Routine System</h1>
-  <p>This is your personal NFC-triggered checklist system. Tap an NFC tag to jump to a zone, or click below to test manually.</p>
-
-  <div class="zone-block">
-    <h3>🛁 Bathroom</h3>
-    <a href="bathroom/index.html">Open Bathroom Zone</a><br>
-    <code id="link-bathroom">https://tinkrshift.github.io/nfc-checklist/bathroom/</code>
-    <button onclick="copy('link-bathroom')">📋 Copy</button>
+  <h2>My Checklist</h2>
+  <div id="checklistContainer"></div>
+  <button onclick="toggleEdit()">⚙️ Edit Checklist</button>
+  <div id="editorSection" style="display:none;">
+    <h3>Edit Tasks</h3>
+    <div id="editor"></div>
+    <button onclick="saveChecklist()">💾 Save</button>
   </div>
-
-  <div class="zone-block">
-    <h3>🍽️ Kitchen</h3>
-    <a href="kitchen/index.html">Open Kitchen Zone</a><br>
-    <code id="link-kitchen">https://tinkrshift.github.io/nfc-checklist/kitchen/</code>
-    <button onclick="copy('link-kitchen')">📋 Copy</button>
-  </div>
-
-  <div class="zone-block">
-    <h3>🏋️ Gym</h3>
-    <a href="gym/index.html">Open Gym Zone</a><br>
-    <code id="link-gym">https://tinkrshift.github.io/nfc-checklist/gym/</code>
-    <button onclick="copy('link-gym')">📋 Copy</button>
-  </div>
-
-  <div class="zone-block">
-    <h3>➕ Add More Zones (coming soon)</h3>
-    <p>You'll be able to create custom zones from here in a future update.</p>
-  </div>
+  <footer>
+    <p>🔗 NFC Link to This Page:<br>
+    <code id="nfcLink"></code> <button onclick="copyLink()">📋 Copy</button></p>
+  </footer>
 
   <script>
-    function copy(id) {
-      const text = document.getElementById(id).textContent;
+    const storageKey = "routine:main";
+    let tasks = [];
+
+    function seedDefaults() {
+      tasks = [
+        { label: "Brush Teeth", checked: false },
+        { label: "Take Vitamins", checked: false },
+        { label: "Stretch for 5 min", checked: false }
+      ];
+      localStorage.setItem(storageKey, JSON.stringify(tasks));
+    }
+
+    function loadChecklist() {
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (!stored) {
+          seedDefaults();
+        }
+        tasks = JSON.parse(localStorage.getItem(storageKey) || "[]");
+
+        const container = document.getElementById('checklistContainer');
+        container.innerHTML = "";
+        tasks.forEach((task, index) => {
+          const div = document.createElement('div');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = task.checked || false;
+          checkbox.onchange = () => {
+            tasks[index].checked = checkbox.checked;
+            localStorage.setItem(storageKey, JSON.stringify(tasks));
+          };
+          const label = document.createElement('label');
+          label.textContent = " " + task.label;
+          div.appendChild(checkbox);
+          div.appendChild(label);
+          container.appendChild(div);
+        });
+
+        document.getElementById('nfcLink').textContent = window.location.href;
+      } catch (e) {
+        console.error("Checklist loading error:", e);
+      }
+    }
+
+    function toggleEdit() {
+      const editor = document.getElementById('editorSection');
+      editor.style.display = editor.style.display === 'none' ? 'block' : 'none';
+      loadEditor();
+    }
+
+    function loadEditor() {
+      const editor = document.getElementById('editor');
+      editor.innerHTML = '';
+      tasks.forEach((task, index) => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = task.label;
+        input.dataset.index = index;
+        editor.appendChild(input);
+        editor.appendChild(document.createElement('br'));
+      });
+    }
+
+    function saveChecklist() {
+      const inputs = document.querySelectorAll('#editor input[type=text]');
+      tasks = Array.from(inputs).map(input => ({ label: input.value, checked: false }));
+      localStorage.setItem(storageKey, JSON.stringify(tasks));
+      loadChecklist();
+      document.getElementById('editorSection').style.display = 'none';
+    }
+
+    function copyLink() {
+      const text = document.getElementById('nfcLink').textContent;
       navigator.clipboard.writeText(text);
     }
+
+    window.onload = loadChecklist;
   </script>
 </body>
 </html>
