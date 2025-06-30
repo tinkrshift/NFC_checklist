@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'nfc_task_data_v4';
+const STORAGE_KEY = 'nfc_task_data_v5';
 const MAX_DAYS = 30;
 let currentEditPeriod = getTimePeriod();
 
@@ -27,6 +27,16 @@ function getTodayKey() {
   return new Date().toISOString().split('T')[0];
 }
 
+function getLast30Days() {
+  const days = [];
+  for (let i = 0; i < MAX_DAYS; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    days.push(date.toISOString().split('T')[0]);
+  }
+  return days;
+}
+
 function renderTasks() {
   const timePeriod = getTimePeriod();
   const data = loadData();
@@ -51,7 +61,7 @@ function renderTasks() {
       data.history[timePeriod][today][task] = checkbox.checked;
       saveData(data);
       renderCompletion();
-      if (Object.values(data.history[timePeriod][today]).every(v => v)) window.close();
+      if (list.every(t => data.history[timePeriod][today][t])) window.close();
     };
     li.appendChild(checkbox);
     li.appendChild(document.createTextNode(" " + task));
@@ -64,21 +74,23 @@ function renderTasks() {
 function renderCompletion() {
   const data = loadData();
   const timePeriod = getTimePeriod();
-  const keys = Object.keys(data.history[timePeriod]).slice(-MAX_DAYS);
+  const recentDays = getLast30Days();
   const list = data.tasks[timePeriod];
-  let total = 0, done = 0;
 
-  keys.forEach(day => {
-    const daily = data.history[timePeriod][day];
-    for (let task of list) {
-      total++;
-      if (daily?.[task]) done++;
-    }
+  const taskStats = list.map(task => {
+    let count = 0;
+    recentDays.forEach(day => {
+      if (data.history[timePeriod][day]?.[task]) count++;
+    });
+    return {
+      task,
+      percent: Math.round((count / MAX_DAYS) * 100)
+    };
   });
 
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  document.getElementById("completion-rate").innerText =
-    `${timePeriod} - 30-day completion: ${pct}%`;
+  const summary = taskStats.map(stat => `${stat.task}: ${stat.percent}%`).join('<br>');
+  document.getElementById("completion-rate").innerHTML =
+    `30-day Task Completion (${timePeriod}):<br>${summary}`;
 }
 
 function toggleEditMode() {
@@ -135,6 +147,8 @@ function addTask() {
 
 function setEditPeriod(value) {
   currentEditPeriod = value;
+  populateTitleInput();
+  currentEditPeriod = value;
   renderEditList();
 }
 
@@ -150,11 +164,34 @@ function deleteFromHistory(historySection, task) {
 }
 
 function trimHistory(historySection) {
-  const keys = Object.keys(historySection).sort();
-  while (keys.length > MAX_DAYS) {
-    delete historySection[keys.shift()];
+  const cutoff = getLast30Days();
+  for (let day in historySection) {
+    if (!cutoff.includes(day)) delete historySection[day];
   }
+}
+
+function updateTitle() {
+  const input = document.getElementById("list-title");
+  const data = loadData();
+  if (!data.titles) data.titles = {};
+  data.titles[currentEditPeriod] = input.value;
+  saveData(data);
+  renderTasks();
+}
+
+function updateHeaderTitle() {
+  const data = loadData();
+  const timePeriod = getTimePeriod();
+  const title = data.titles?.[timePeriod] || (timePeriod + " Tasks");
+  document.getElementById("task-header").innerText = title;
+}
+
+function populateTitleInput() {
+  const data = loadData();
+  const input = document.getElementById("list-title");
+  input.value = data.titles?.[currentEditPeriod] || "";
 }
 
 // Initialize
 renderTasks();
+updateHeaderTitle();

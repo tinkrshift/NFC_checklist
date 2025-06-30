@@ -9,13 +9,21 @@
   </style>
 </head>
 <body>
-  <h2>Today's Tasks</h2>
+  <h2 id="task-header">Today's Tasks</h2>
   <ul id="task-list"></ul>
   <button onclick="toggleEditMode()">Edit Tasks</button>
   <button onclick="copyLink()">Copy Link</button>
   <p id="completion-rate"></p>
 
   <div id="edit-section" style="display:none;">
+    <label>Edit List:</label>
+    <select id="edit-period" onchange="setEditPeriod(this.value)">
+      <option value="AM">AM</option>
+      <option value="PM">PM</option>
+    </select><br>
+    <label>List Title:</label>
+    <input type="text" id="list-title" placeholder="Enter title..." oninput="updateTitle()" />
+    <br>
     <label>Edit List:</label>
     <select id="edit-period" onchange="setEditPeriod(this.value)">
       <option value="AM">AM</option>
