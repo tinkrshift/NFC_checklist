@@ -15,14 +15,8 @@ function loadState() {
 
 
 function saveState() {
-  const title = document.querySelector("h2")?.innerText || "Quick Routine";
-  const data = {
-    tasks: TASKS,
-    state: state,
-    title: title
-  };
-  localStorage.setItem("mini_routine_data", JSON.stringify(data));
-}
+  const title = document.querySelector("h2").innerText;
+  localStorage.setItem("mini_routine_data", JSON.stringify({ tasks: TASKS, state, title }));
 
 }
 
@@ -53,11 +47,13 @@ function renderTasks() {
     ul.appendChild(li);
   });
 
-  if (allDone && TASKS.length > 0) {
-    alert("✅ All done! Great job.");
-    resetRoutine();
-    setTimeout(() => window.close(), 400);
-  }
+  
+if (allDone && TASKS.length > 0) {
+  TASKS.forEach(task => state[task] = false);
+  saveState();
+  setTimeout(() => window.close(), 300);
+}
+
 }
 
 function resetRoutine() {
@@ -203,5 +199,10 @@ function updateTitle() {
   const titleInput = document.getElementById("routine-title");
   const title = titleInput.value.trim();
   document.querySelector("h2").innerText = title || "Quick Routine";
-  saveState();
+
+  const saved = JSON.parse(localStorage.getItem("mini_routine_data")) || {};
+  saved.title = title;
+  saved.tasks = TASKS;
+  saved.state = state;
+  localStorage.setItem("mini_routine_data", JSON.stringify(saved));
 }
