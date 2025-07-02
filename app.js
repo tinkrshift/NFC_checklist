@@ -1,154 +1,134 @@
-const STORAGE_KEY = 'nfc_task_data_v5';
-const MAX_DAYS = 30;
-let currentEditPeriod = getTimePeriod();
+let TASKS = ["Grab Keys", "Check Wallet", "Turn Off Lights", "Lock Door"];
+let state = {};
 
-function getTimePeriod() {
-  const hour = new Date().getHours();
-  return hour < 12 ? "AM" : "PM";
-}
-
-function loadData() {
-  const defaultTasks = {
-    AM: ["Brush Teeth", "Take Meds", "Shave"],
-    PM: ["Brush Teeth", "Apply Lotion", "Floss"]
-  };
-  const data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-    tasks: defaultTasks,
-    history: { AM: {}, PM: {} }
-  };
-  return data;
-}
-
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function getTodayKey() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function getLast30Days() {
-  const days = [];
-  for (let i = 0; i < MAX_DAYS; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    days.push(date.toISOString().split('T')[0]);
+function loadState() {
+  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
+  if (saved) {
+    TASKS = saved.tasks;
+    state = saved.state || {};
   }
-  return days;
+  TASKS.forEach(task => {
+    if (state[task] === undefined) state[task] = false;
+  });
+  saveState();
+}
+
+
+function saveState() {
+  const title = document.querySelector("h2")?.innerText || "Quick Routine";
+  const data = {
+    tasks: TASKS,
+    state: state,
+    title: title
+  };
+  localStorage.setItem("mini_routine_data", JSON.stringify(data));
+}
+
 }
 
 function renderTasks() {
-  const timePeriod = getTimePeriod();
-  const data = loadData();
-  const today = getTodayKey();
-  const list = data.tasks[timePeriod] || [];
-
-  if (!data.history[timePeriod][today]) {
-    data.history[timePeriod][today] = {};
-    list.forEach(t => data.history[timePeriod][today][t] = false);
-    trimHistory(data.history[timePeriod]);
-    saveData(data);
-  }
-
   const ul = document.getElementById("task-list");
   ul.innerHTML = "";
-  list.forEach(task => {
+  let allDone = true;
+
+  TASKS.forEach(task => {
     const li = document.createElement("li");
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = data.history[timePeriod][today][task];
-    checkbox.onchange = () => {
-      data.history[timePeriod][today][task] = checkbox.checked;
-      saveData(data);
-      renderCompletion();
-      if (list.every(t => data.history[timePeriod][today][t])) window.close();
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = state[task];
+    box.onchange = () => {
+      state[task] = box.checked;
+      saveState();
+      renderTasks();
+  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
+  if (saved && saved.title) {
+    document.querySelector("h2").innerText = saved.title;
+    const titleBox = document.getElementById("routine-title");
+    if (titleBox) titleBox.value = saved.title;
+  }
     };
-    li.appendChild(checkbox);
-    li.appendChild(document.createTextNode(" " + task));
+    if (!state[task]) allDone = false;
+    li.appendChild(box);
+    li.appendChild(document.createTextNode(task));
     ul.appendChild(li);
   });
 
-  renderCompletion();
-}
-
-function renderCompletion() {
-  const data = loadData();
-  const timePeriod = getTimePeriod();
-  const recentDays = getLast30Days();
-  const list = data.tasks[timePeriod];
-
-  const taskStats = list.map(task => {
-    let count = 0;
-    recentDays.forEach(day => {
-      if (data.history[timePeriod][day]?.[task]) count++;
-    });
-    return {
-      task,
-      percent: Math.round((count / MAX_DAYS) * 100)
-    };
-  });
-
-  const summary = taskStats.map(stat => `${stat.task}: ${stat.percent}%`).join('<br>');
-  document.getElementById("completion-rate").innerHTML =
-    `30-day Task Completion (${timePeriod}):<br>${summary}`;
-}
-
-function toggleEditMode() {
-  const edit = document.getElementById("edit-section");
-  const select = document.getElementById("edit-period");
-  const button = document.querySelector("button[onclick='toggleEditMode()']");
-  const isVisible = edit.style.display !== "none";
-  edit.style.display = isVisible ? "none" : "block";
-  button.innerText = isVisible ? "Edit Tasks" : "Close Edit";
-
-  if (!isVisible) {
-    select.value = currentEditPeriod = getTimePeriod();
-    renderEditList();
+  if (allDone && TASKS.length > 0) {
+    alert("✅ All done! Great job.");
+    resetRoutine();
+    setTimeout(() => window.close(), 400);
   }
 }
 
+function resetRoutine() {
+  TASKS.forEach(task => state[task] = false);
+  saveState();
+  renderTasks();
+  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
+  if (saved && saved.title) {
+    document.querySelector("h2").innerText = saved.title;
+    const titleBox = document.getElementById("routine-title");
+    if (titleBox) titleBox.value = saved.title;
+  }
+}
+
+function toggleSettings() {
+  const menu = document.getElementById("settings-menu");
+  menu.style.display = menu.style.display === "none" ? "block" : "none";
+}
+
+function toggleEdit() {
+  const edit = document.getElementById("edit-section");
+  const taskList = document.getElementById("task-list");
+  const btn = document.querySelector('#settings-menu button[onclick="toggleEdit()"]');
+  const isEditing = edit.style.display === "block";
+  edit.style.display = isEditing ? "none" : "block";
+  taskList.style.display = isEditing ? "block" : "none";
+  if (btn) btn.innerText = isEditing ? "Edit Tasks" : "Close Edit";
+  renderEditList();
+}
+
 function renderEditList() {
-  const data = loadData();
-  const ul = document.getElementById("edit-list");
-  ul.innerHTML = "";
-  (data.tasks[currentEditPeriod] || []).forEach((task, i) => {
+  const list = document.getElementById("edit-list");
+  list.innerHTML = "";
+  TASKS.forEach((task, i) => {
     const li = document.createElement("li");
     li.innerText = task;
     const btn = document.createElement("button");
     btn.innerText = "🗑️";
     btn.onclick = () => {
-      data.tasks[currentEditPeriod].splice(i, 1);
-      deleteFromHistory(data.history[currentEditPeriod], task);
-      saveData(data);
+      TASKS.splice(i, 1);
+      delete state[task];
+      saveState();
       renderTasks();
+  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
+  if (saved && saved.title) {
+    document.querySelector("h2").innerText = saved.title;
+    const titleBox = document.getElementById("routine-title");
+    if (titleBox) titleBox.value = saved.title;
+  }
       renderEditList();
     };
     li.appendChild(btn);
-    ul.appendChild(li);
+    list.appendChild(li);
   });
 }
 
 function addTask() {
   const input = document.getElementById("new-task");
-  const newTask = input.value.trim();
-  if (!newTask) return;
-  const data = loadData();
-  if (!data.tasks[currentEditPeriod].includes(newTask)) {
-    data.tasks[currentEditPeriod].push(newTask);
-    Object.keys(data.history[currentEditPeriod]).forEach(day => {
-      data.history[currentEditPeriod][day][newTask] = false;
-    });
-    saveData(data);
-    renderTasks();
-    renderEditList();
-  }
+  const task = input.value.trim();
+  if (!task || TASKS.includes(task)) return;
+  TASKS.push(task);
+  state[task] = false;
+  saveState();
   input.value = "";
-}
-
-function setEditPeriod(value) {
-  currentEditPeriod = value;
-  populateTitleInput();
-  currentEditPeriod = value;
+  renderTasks();
+  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
+  if (saved && saved.title) {
+    document.querySelector("h2").innerText = saved.title;
+    const titleBox = document.getElementById("routine-title");
+    if (titleBox) titleBox.value = saved.title;
+  }
   renderEditList();
 }
 
@@ -157,41 +137,71 @@ function copyLink() {
   alert("Link copied!");
 }
 
-function deleteFromHistory(historySection, task) {
-  for (let day in historySection) {
-    delete historySection[day][task];
-  }
+function exportData() {
+  const blob = new Blob([JSON.stringify({ tasks: TASKS, state }, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "mini_routine.json";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-function trimHistory(historySection) {
-  const cutoff = getLast30Days();
-  for (let day in historySection) {
-    if (!cutoff.includes(day)) delete historySection[day];
-  }
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      TASKS = data.tasks || [];
+      state = data.state || {};
+      saveState();
+      location.reload();
+    } catch (err) {
+      alert("Import failed: " + err.message);
+    }
+  };
+  reader.readAsText(file);
 }
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark");
+  localStorage.setItem("darkMode", document.body.classList.contains("dark"));
+}
+
+window.onload = () => {
+  if (localStorage.getItem("darkMode") === "true") {
+    document.body.classList.add("dark");
+  }
+  loadState();
+  renderTasks();
+  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
+  if (saved && saved.title) {
+    document.querySelector("h2").innerText = saved.title;
+    const titleBox = document.getElementById("routine-title");
+    if (titleBox) titleBox.value = saved.title;
+  }
+  document.querySelectorAll('#settings-menu button, #settings-menu input[type="file"]').forEach(el => {
+    el.addEventListener('click', () => {
+      const menu = document.getElementById("settings-menu");
+      if (menu) menu.style.display = "none";
+    });
+  });
+};
+
+
+function showReadme() {
+  document.getElementById("readme-modal").style.display = "block";
+}
+function hideReadme() {
+  document.getElementById("readme-modal").style.display = "none";
+}
+
 
 function updateTitle() {
-  const input = document.getElementById("list-title");
-  const data = loadData();
-  if (!data.titles) data.titles = {};
-  data.titles[currentEditPeriod] = input.value;
-  saveData(data);
-  renderTasks();
+  const titleInput = document.getElementById("routine-title");
+  const title = titleInput.value.trim();
+  document.querySelector("h2").innerText = title || "Quick Routine";
+  saveState();
 }
-
-function updateHeaderTitle() {
-  const data = loadData();
-  const timePeriod = getTimePeriod();
-  const title = data.titles?.[timePeriod] || (timePeriod + " Tasks");
-  document.getElementById("task-header").innerText = title;
-}
-
-function populateTitleInput() {
-  const data = loadData();
-  const input = document.getElementById("list-title");
-  input.value = data.titles?.[currentEditPeriod] || "";
-}
-
-// Initialize
-renderTasks();
-updateHeaderTitle();
