@@ -1,131 +1,151 @@
-let TASKS = ["Grab Keys", "Check Wallet", "Turn Off Lights", "Lock Door"];
-let state = {};
+const STORAGE_KEY = 'routine_am_pm_v2';
+const MAX_DAYS = 30;
+let currentEditPeriod = getCurrentPeriod();
 
-function loadState() {
-  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
-  if (saved) {
-    TASKS = saved.tasks;
-    state = saved.state || {};
-  }
-  TASKS.forEach(task => {
-    if (state[task] === undefined) state[task] = false;
-  });
-  saveState();
+function getCurrentPeriod() {
+  const hour = new Date().getHours();
+  return hour < 12 ? "AM" : "PM";
 }
 
+function getTodayKey() {
+  return new Date().toISOString().split('T')[0];
+}
 
-function saveState() {
-  const title = document.querySelector("h2").innerText;
-  localStorage.setItem("mini_routine_data", JSON.stringify({ tasks: TASKS, state, title }));
+function loadData() {
+  return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+    tasks: { AM: ["Brush Teeth", "Take Meds"], PM: ["Brush Teeth", "Apply Lotion", "Floss"] },
+    history: { AM: {}, PM: {} },
+    titles: { AM: "Morning Routine", PM: "Evening Routine" }
+  };
+}
 
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 function renderTasks() {
+  const data = loadData();
+  const period = getCurrentPeriod();
+  const today = getTodayKey();
+  const tasks = data.tasks[period] || [];
+
+  if (!data.history[period][today]) {
+    data.history[period][today] = {};
+    tasks.forEach(t => data.history[period][today][t] = false);
+    trimHistory(data.history[period]);
+    saveData(data);
+  }
+
+  document.getElementById("task-header").innerText = data.titles?.[period] || (period + " Routine");
+
   const ul = document.getElementById("task-list");
   ul.innerHTML = "";
-  let allDone = true;
+  const recentDays = getLast30Days();
 
-  TASKS.forEach(task => {
+  tasks.forEach(task => {
+    let count = 0;
+    recentDays.forEach(day => {
+      if (data.history[period]?.[day]?.[task]) count++;
+    });
+    const percent = Math.round((count / MAX_DAYS) * 100);
+
     const li = document.createElement("li");
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = state[task];
-    box.onchange = () => {
-      state[task] = box.checked;
-      saveState();
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = data.history[period][today][task];
+    checkbox.onchange = () => {
+      data.history[period][today][task] = checkbox.checked;
+      saveData(data);
       renderTasks();
-  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
-  if (saved && saved.title) {
-    document.querySelector("h2").innerText = saved.title;
-    const titleBox = document.getElementById("routine-title");
-    if (titleBox) titleBox.value = saved.title;
-  }
+      const allChecked = tasks.every(t => data.history[period][today][t]);
+      if (allChecked) setTimeout(() => window.close(), 500);
     };
-    if (!state[task]) allDone = false;
-    li.appendChild(box);
-    li.appendChild(document.createTextNode(task));
+    const label = document.createElement("span");
+    label.innerHTML = `${task} <small style="font-size:0.7em;">(${percent}%)</small>`;
+
+    li.appendChild(checkbox);
+    li.appendChild(label);
     ul.appendChild(li);
   });
 
-  
-if (allDone && TASKS.length > 0) {
-  TASKS.forEach(task => state[task] = false);
-  saveState();
-  setTimeout(() => window.close(), 300);
-}
-
-}
-
-function resetRoutine() {
-  TASKS.forEach(task => state[task] = false);
-  saveState();
-  renderTasks();
-  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
-  if (saved && saved.title) {
-    document.querySelector("h2").innerText = saved.title;
-    const titleBox = document.getElementById("routine-title");
-    if (titleBox) titleBox.value = saved.title;
-  }
-}
-
-function toggleSettings() {
-  const menu = document.getElementById("settings-menu");
-  menu.style.display = menu.style.display === "none" ? "block" : "none";
-}
-
-function toggleEdit() {
-  const edit = document.getElementById("edit-section");
-  const taskList = document.getElementById("task-list");
-  const btn = document.querySelector('#settings-menu button[onclick="toggleEdit()"]');
-  const isEditing = edit.style.display === "block";
-  edit.style.display = isEditing ? "none" : "block";
-  taskList.style.display = isEditing ? "block" : "none";
-  if (btn) btn.innerText = isEditing ? "Edit Tasks" : "Close Edit";
-  renderEditList();
+  document.getElementById("completion-rate").innerHTML = "";
 }
 
 function renderEditList() {
-  const list = document.getElementById("edit-list");
-  list.innerHTML = "";
-  TASKS.forEach((task, i) => {
+  const data = loadData();
+  const select = document.getElementById("edit-period");
+  if (select) currentEditPeriod = select.value;
+  const titleBox = document.getElementById("list-title");
+  if (titleBox) titleBox.value = data.titles?.[currentEditPeriod] || currentEditPeriod + " Routine";
+
+  const ul = document.getElementById("edit-list");
+  ul.innerHTML = "";
+  (data.tasks[currentEditPeriod] || []).forEach((task, i) => {
     const li = document.createElement("li");
     li.innerText = task;
     const btn = document.createElement("button");
     btn.innerText = "🗑️";
     btn.onclick = () => {
-      TASKS.splice(i, 1);
-      delete state[task];
-      saveState();
+      data.tasks[currentEditPeriod].splice(i, 1);
+      Object.keys(data.history[currentEditPeriod]).forEach(day => delete data.history[currentEditPeriod][day][task]);
+      saveData(data);
       renderTasks();
-  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
-  if (saved && saved.title) {
-    document.querySelector("h2").innerText = saved.title;
-    const titleBox = document.getElementById("routine-title");
-    if (titleBox) titleBox.value = saved.title;
-  }
       renderEditList();
     };
     li.appendChild(btn);
-    list.appendChild(li);
+    ul.appendChild(li);
   });
+}
+
+function updateListTitle() {
+  const input = document.getElementById("list-title");
+  const data = loadData();
+  data.titles[currentEditPeriod] = input.value;
+  saveData(data);
+  renderTasks();
+}
+
+function toggleEditMode() {
+  const edit = document.getElementById("edit-section");
+  const list = document.getElementById("task-list");
+  const title = document.getElementById("task-header");
+  const button = document.querySelector("#settings-menu button[onclick='toggleEditMode()']");
+  const isEditing = edit.style.display === "none";
+  edit.style.display = isEditing ? "block" : "none";
+  list.style.display = isEditing ? "none" : "block";
+  title.style.display = isEditing ? "none" : "block";
+  if (button) button.innerText = isEditing ? "Close Edit" : "Edit Tasks";
+  if (isEditing) renderEditList();
 }
 
 function addTask() {
   const input = document.getElementById("new-task");
   const task = input.value.trim();
-  if (!task || TASKS.includes(task)) return;
-  TASKS.push(task);
-  state[task] = false;
-  saveState();
-  input.value = "";
-  renderTasks();
-  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
-  if (saved && saved.title) {
-    document.querySelector("h2").innerText = saved.title;
-    const titleBox = document.getElementById("routine-title");
-    if (titleBox) titleBox.value = saved.title;
+  if (!task) return;
+  const data = loadData();
+  if (!data.tasks[currentEditPeriod].includes(task)) {
+    data.tasks[currentEditPeriod].push(task);
+    Object.keys(data.history[currentEditPeriod]).forEach(day => data.history[currentEditPeriod][day][task] = false);
+    saveData(data);
+    renderTasks();
+    renderEditList();
   }
-  renderEditList();
+  input.value = "";
+}
+
+function getLast30Days() {
+  const days = [];
+  for (let i = 0; i < MAX_DAYS; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  return days;
+}
+
+function trimHistory(hist) {
+  const keys = Object.keys(hist).sort();
+  while (keys.length > MAX_DAYS) delete hist[keys.shift()];
 }
 
 function copyLink() {
@@ -134,11 +154,12 @@ function copyLink() {
 }
 
 function exportData() {
-  const blob = new Blob([JSON.stringify({ tasks: TASKS, state }, null, 2)], { type: "application/json" });
+  const data = loadData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "mini_routine.json";
+  a.download = "routine_backup.json";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -150,9 +171,8 @@ function importData(event) {
   reader.onload = function(e) {
     try {
       const data = JSON.parse(e.target.result);
-      TASKS = data.tasks || [];
-      state = data.state || {};
-      saveState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      alert("Data imported! Reloading...");
       location.reload();
     } catch (err) {
       alert("Import failed: " + err.message);
@@ -161,23 +181,29 @@ function importData(event) {
   reader.readAsText(file);
 }
 
+function toggleSettings() {
+  const menu = document.getElementById("settings-menu");
+  menu.style.display = menu.style.display === "none" ? "block" : "none";
+}
+
 function toggleDarkMode() {
   document.body.classList.toggle("dark");
   localStorage.setItem("darkMode", document.body.classList.contains("dark"));
+}
+
+function showReadme() {
+  document.getElementById("readme-modal").style.display = "block";
+}
+
+function hideReadme() {
+  document.getElementById("readme-modal").style.display = "none";
 }
 
 window.onload = () => {
   if (localStorage.getItem("darkMode") === "true") {
     document.body.classList.add("dark");
   }
-  loadState();
   renderTasks();
-  const saved = JSON.parse(localStorage.getItem("mini_routine_data"));
-  if (saved && saved.title) {
-    document.querySelector("h2").innerText = saved.title;
-    const titleBox = document.getElementById("routine-title");
-    if (titleBox) titleBox.value = saved.title;
-  }
   document.querySelectorAll('#settings-menu button, #settings-menu input[type="file"]').forEach(el => {
     el.addEventListener('click', () => {
       const menu = document.getElementById("settings-menu");
@@ -185,24 +211,3 @@ window.onload = () => {
     });
   });
 };
-
-
-function showReadme() {
-  document.getElementById("readme-modal").style.display = "block";
-}
-function hideReadme() {
-  document.getElementById("readme-modal").style.display = "none";
-}
-
-
-function updateTitle() {
-  const titleInput = document.getElementById("routine-title");
-  const title = titleInput.value.trim();
-  document.querySelector("h2").innerText = title || "Quick Routine";
-
-  const saved = JSON.parse(localStorage.getItem("mini_routine_data")) || {};
-  saved.title = title;
-  saved.tasks = TASKS;
-  saved.state = state;
-  localStorage.setItem("mini_routine_data", JSON.stringify(saved));
-}
