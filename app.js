@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'routine_am_pm_v2';
+const STORAGE_KEY = 'routine_' + (window.location.pathname.split('/')[1] || 'default');
 const MAX_DAYS = 30;
 let currentEditPeriod = getCurrentPeriod();
 
